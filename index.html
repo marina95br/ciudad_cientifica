@@ -33,22 +33,27 @@
         .sidebar {
             width: 450px; background-color: var(--panel-bg); padding: 40px;
             box-shadow: 0 0 30px rgba(0,0,0,0.08); display: flex; flex-direction: column;
-            z-index: 100; overflow-y: auto;
+            z-index: 100; overflow-y: auto; box-sizing: border-box;
+        }
+        
+        .sidebar-classroom {
+            border-left: 1px solid #e2e8f0;
+            width: 420px;
         }
 
         .map-area {
             flex: 1; display: flex; flex-direction: column; justify-content: center;
             align-items: center; background: radial-gradient(circle at center, #e0f2fe 0%, #f1f5f9 100%);
-            position: relative;
+            position: relative; overflow: hidden;
         }
 
-        /* --- CIUDAD ISOMÉTRICA (Ampliados los cuadrados y los espacios) --- */
+        /* --- CIUDAD ISOMÉTRICA --- */
         .iso-grid {
             display: grid; 
-            grid-template-columns: repeat(4, 120px); /* Antes 90px, ahora 120px */
-            grid-template-rows: repeat(4, 120px);    /* Antes 90px, ahora 120px */
-            gap: 65px;                               /* Antes 40px, ahora 65px de separación */
-            transform: scale(0.85) rotateX(60deg) rotateZ(-45deg); /* Escala ajustada para que quepa en pantalla */
+            grid-template-columns: repeat(4, 120px); 
+            grid-template-rows: repeat(4, 120px);    
+            gap: 65px;                               
+            transform: scale(0.85) rotateX(60deg) rotateZ(-45deg); 
             transform-style: preserve-3d;
         }
         
@@ -60,7 +65,7 @@
             box-shadow: inset 0 0 15px rgba(255,255,255,0.8);
         }
         
-        /* Pared Izquierda del edificio (ajustada al nuevo tamaño) */
+        /* Pared Izquierda del edificio */
         .iso-block::before {
             content: ''; position: absolute; width: 35px; height: 100%; background-color: var(--build-left);
             left: -37px; top: 0px; transform-origin: right; transform: rotateY(-90deg) skewY(-0deg);
@@ -68,7 +73,7 @@
             transition: all 0.3s;
         }
         
-        /* Pared Derecha del edificio (ajustada al nuevo tamaño) */
+        /* Pared Derecha del edificio */
         .iso-block::after {
             content: ''; position: absolute; width: 100%; height: 35px; background-color: var(--build-right);
             left: 0px; bottom: -37px; transform-origin: top; transform: rotateX(-90deg) skewX(-0deg);
@@ -82,10 +87,10 @@
         .iso-block.active::before { background-color: var(--build-active-left); border-color: #166534; }
         .iso-block.active::after { background-color: var(--build-active-right); border-color: #166534; }
 
-        /* PINES FLOTANTES ESTILO GOOGLE MAPS (AR / HUD) */
+        /* PINES FLOTANTES */
         .map-pin {
             position: absolute;
-            transform: translateZ(50px) rotateZ(45deg) rotateX(-60deg); /* Elevados para compensar el tamaño */
+            transform: translateZ(50px) rotateZ(45deg) rotateX(-60deg); 
             background: white;
             padding: 8px 15px;
             border-radius: 20px;
@@ -94,9 +99,10 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            pointer-events: none; /* Que el clic pase al edificio (esto evita que el pin bloquee el clic) */
+            pointer-events: none; 
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             color: var(--text-main);
+            white-space: nowrap;
         }
 
         .map-pin::after {
@@ -175,11 +181,82 @@
         .verdad { top: 40px; left: 30px; width: 130px; height: 100px; background-color: #f1f5f9; border: 3px solid #94a3b8; color: #334155; }
         .enciclopedia { top: 40px; right: 30px; width: 140px; height: 100px; background-color: #bfdbfe; border: 3px solid #3b82f6; color: #1e3a8a; }
         .emociones { bottom: 50px; left: 30px; width: 120px; height: 120px; background-color: #dcfce7; border: 4px dotted #22c55e; border-radius: 50%; color: #166534; }
+
+        /* ========================================================
+           💥 OPTIMIZACIÓN RESPONSIVE: COMPATIBILIDAD MÓVIL/TABLET 
+           ======================================================== */
+        @media (max-width: 950px) {
+            body { overflow: auto; }
+            #city-view, #classroom-view { 
+                flex-direction: column; 
+                height: auto; 
+                overflow-x: hidden;
+            }
+            
+            /* Ajuste de los visores de mapas */
+            .map-area {
+                height: 55vh;
+                width: 100vw;
+                min-height: 380px;
+                flex: none;
+                padding: 10px;
+                box-sizing: border-box;
+            }
+
+            /* Paneles laterales pasan a ocupar todo el ancho abajo */
+            .sidebar, .sidebar-classroom {
+                width: 100vw !important;
+                height: auto;
+                min-height: 45vh;
+                padding: 30px 20px;
+                order: 2; /* Obliga al panel a posicionarse debajo del mapa */
+                box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+                border-left: none !important;
+                border-top: 1px solid #e2e8f0;
+            }
+
+            /* Escalado controlado de la ciudad isométrica para Tablets */
+            .iso-grid {
+                transform: scale(0.65) rotateX(60deg) rotateZ(-45deg);
+                gap: 50px;
+            }
+
+            /* Escalado controlado del Aula del centro para Tablets */
+            .classroom {
+                transform: scale(0.55);
+                transform-origin: center center;
+            }
+        }
+
+        @media (max-width: 520px) {
+            /* Optimizaciones críticas para pantallas de Smartphones */
+            .map-area {
+                height: 50vh;
+                min-height: 320px;
+            }
+            .sidebar, .sidebar-classroom {
+                min-height: 50vh;
+            }
+            .iso-grid {
+                transform: scale(0.43) rotateX(60deg) rotateZ(-45deg);
+                gap: 45px;
+            }
+            .classroom {
+                transform: scale(0.42);
+            }
+            .map-pin {
+                padding: 6px 12px;
+            }
+            .btn-main {
+                padding: 14px;
+                font-size: 1rem;
+            }
+            h1 { font-size: 1.8rem !important; }
+        }
     </style>
 </head>
 <body>
 
-    <!-- VISTA 1: CIUDAD -->
     <div id="city-view">
         <div class="sidebar">
             <h1 style="color:var(--primary); margin:0 0 5px 0; font-size: 2.2rem; font-weight: 800;">Ciudad Científica</h1>
@@ -188,7 +265,7 @@
             <hr style="border:1px solid #e2e8f0; margin: 20px 0; width: 100%;">
             
             <div id="city-info-panel" style="flex:1;">
-                <div style="text-align:center; margin-top:50px;">
+                <div style="text-align:center; margin-top:30px;">
                     <span style="font-size:3rem;">🏙️</span>
                     <h3 style="color:#475569;">Selecciona un edificio</h3>
                     <p style="color:#94a3b8;">Haz clic en un bloque de unidad didáctica para acceder a la investigación en los espacios del centro.</p>
@@ -200,31 +277,26 @@
         </div>
     </div>
 
-    <!-- VISTA 2: AULA DE INVESTIGACIÓN Y ESPACIOS DEL CENTRO -->
     <div id="classroom-view" style="display:none;">
         <div class="map-area" style="background: var(--bg-page);">
             <div style="display:flex; flex-direction:column; align-items:center;">
-                <h2 id="classroom-title" style="color: var(--wall-color); font-size: 2rem; margin-bottom: 40px;">🕵️ Centro Educativo</h2>
+                <h2 id="classroom-title" style="color: var(--wall-color); font-size: 1.6rem; margin-bottom: 20px; text-align: center; padding: 0 10px;">🏫 Centro Educativo</h2>
                 
                 <div class="classroom" id="classroom-container">
-                    <!-- Pared Norte -->
                     <div class="whiteboard"></div>
                     
-                    <!-- Muebles base siempre presentes -->
                     <div class="furniture verdad" onclick="showInfo('verdad', this)">📖<br>Rincón de<br>la Verdad</div>
                     <div class="furniture enciclopedia" onclick="showInfo('enciclopedia', this)">🌐<br>Enciclopedia<br>Infinita</div>
                     <div class="furniture emociones" onclick="showInfo('emociones', this)">🌳<br>Árbol de<br>Emociones</div>
                     <div class="furniture pizarra-det" onclick="showInfo('pizarra', this)">🕵️<br>Pizarra<br>Detectivesca<br><span style="font-size:0.7rem; font-weight:normal;">(Zona Colaborativa)</span></div>
-                    
-                    <!-- Las puertas se generarán aquí abajo de forma dinámica -->
                 </div>
             </div>
         </div>
         
-        <div class="sidebar" style="border-left: 1px solid #e2e8f0; width: 420px;">
+        <div class="sidebar sidebar-classroom">
             <button class="btn-back" onclick="goToCity()">⬅ Volver a la Ciudad</button>
             <div id="classroom-info-panel" style="margin-top: 10px;">
-                <div style="text-align:center; margin-top:50px;">
+                <div style="text-align:center; margin-top:30px;">
                     <span style="font-size:3rem;">🔍</span>
                     <h3 style="color:#475569;">Inspecciona el espacio</h3>
                     <p style="color:#94a3b8;">Haz clic en los rincones fijos del aula o en las <b>salidas programadas en esta SdA</b> para descubrir la programación.</p>
@@ -234,7 +306,7 @@
     </div>
 
     <script>
-        // BASE DE DATOS ESTRUCTURADA
+        // BASE DE DATOS ESTRUCTURADA 100% FIEL A TU PROGRAMACIÓN
         const UDs = {
             1: {
                 titulo: "U1: El Mercado (5º - 1º Trimestre)", ods: "ODS 2, 3 y 4", 
@@ -377,13 +449,13 @@
                     verdad: { title: "📖 Rincón de la Verdad", act: "Elaboración de hipótesis matemáticas sobre tiempos y cantidades en gramos para cocinar.", eval: "Dossier científico" },
                     enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Contraste riguroso de información y fuentes para distinguir información falsa (fake news) de fiable.", eval: "Prueba contraste noticias (40%)" },
                     emociones: { title: "🌳 Árbol de las Emociones", act: "Valorar en el diario emocional la importancia de tener una mentalidad favorable a la indagación.", eval: "Mentalidad crítica" },
-                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Exposición oral técnica presentando los resultados de la receta cocinada, aportando una muestra real.", eval: "Exposición oral: Rúbrica (40%)" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Exposición oral técnica presenting los resultados de la receta cocinada, aportando una muestra real.", eval: "Exposición oral: Rúbrica (40%)" },
                     entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visita guiada a una cadena de radio o televisión (medios de información).", eval: "Análisis de medios" }
                 }
             },
             13: {
                 titulo: "U13: Centro de Datos (6º - 2º Trimestre)", ods: "ODS 4, 9 y 10", 
-                desc: "<b>Reto:</b> ¿Podemos comprender la historia de como nuestro mundo se digitalizó?<br><b>Producto:</b> Exposición oral de la evolución digital.",
+                desc: "<b>Reto:</b> ¿Podemos comprender la historia de como nuestro world se digitalizó?<br><b>Producto:</b> Exposición oral de la evolución digital.",
                 zonas: {
                     pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Debate cruzado (for and against) analizando las ventajas e inconvenientes éticos de las TIC en sociedad.", eval: "Exposición for/against (30%)" },
                     verdad: { title: "📖 Rincón de la Verdad", act: "Fichas teóricas ordenando la historia y cronología de la revolución y los dispositivos informáticos.", eval: "Dossier: lista de cotejo (15%)" },
@@ -447,7 +519,6 @@
                 const block = document.createElement('div');
                 block.className = 'iso-block';
                 
-                // Incorporamos el marcador flotante HUD para el emoji
                 block.innerHTML = `
                     <div class="map-pin">
                         <span style="font-size: 1.6rem; margin-bottom: 3px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));">${emojisUD[i]}</span>
@@ -480,7 +551,6 @@
             document.getElementById('classroom-view').style.display = 'flex';
             document.getElementById('classroom-title').innerText = `🏫 Centro Educativo - ${UDs[id].titulo}`;
             
-            // Limpiar activos
             document.querySelectorAll('.furniture').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.door').forEach(el => el.remove());
             
@@ -509,7 +579,7 @@
             });
 
             document.getElementById('classroom-info-panel').innerHTML = `
-                <div style="text-align:center; margin-top:50px;">
+                <div style="text-align:center; margin-top:30px;">
                     <span style="font-size:3rem;">🔍</span>
                     <h3 style="color:#475569;">Inspecciona el espacio</h3>
                     <p style="color:#94a3b8;">Haz clic en los rincones fijos del aula o en las <b>salidas programadas en esta SdA</b> para descubrir la programación.</p>
