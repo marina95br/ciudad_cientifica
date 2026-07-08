@@ -14,6 +14,7 @@
             --text-main: #0f172a;
             --panel-bg: #ffffff;
             
+            /* Colores de los edificios */
             --build-top: #f8fafc;
             --build-left: #cbd5e1;
             --build-right: #94a3b8;
@@ -22,33 +23,39 @@
             --build-active-right: #4ade80;
         }
 
-        /* BLOQUEO DE EXPANSIÓN Y SCROLL GENERAL */
+        /* RESET GLOBAL CONTRA EXPANSIONES INVOLUNTARIAS */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body { 
-            margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
             background-color: var(--bg-page); color: var(--text-main); 
-            width: 100vw; height: 100dvh; overflow: hidden; /* 100dvh adapta bien en iOS/Android */
+            width: 100vw; height: 100dvh; overflow: hidden; /* Fija la pantalla como una App */
         }
 
         #city-view, #classroom-view { 
             display: flex; width: 100%; height: 100%; overflow: hidden; transition: opacity 0.4s ease; 
         }
 
-        /* PANELES LATERALES */
+        /* BARRA LATERAL (PC DESKTOP) */
         .sidebar {
             width: 450px; flex-shrink: 0; background-color: var(--panel-bg); padding: 40px;
             box-shadow: 0 0 30px rgba(0,0,0,0.08); display: flex; flex-direction: column;
-            z-index: 100; overflow-y: auto; box-sizing: border-box;
+            z-index: 100; overflow-y: auto;
         }
         
         .sidebar-right {
             border-left: 1px solid #e2e8f0; width: 420px;
         }
 
-        /* CONTENEDORES DE MAPAS (Evita que el 3D rompa los bordes) */
+        /* ÁREA DEL MAPA INTERACTIVO */
         .map-area {
-            flex-grow: 1; display: flex; flex-direction: column; justify-content: center;
+            flex: 1; display: flex; flex-direction: column; justify-content: center;
             align-items: center; background: radial-gradient(circle at center, #e0f2fe 0%, #f1f5f9 100%);
-            position: relative; overflow: hidden; min-width: 0; min-height: 0; /* CRÍTICO para móviles */
+            position: relative; overflow: hidden; min-width: 0; min-height: 0;
         }
 
         /* --- CIUDAD ISOMÉTRICA --- */
@@ -85,7 +92,7 @@
         .iso-block.active::before { background-color: var(--build-active-left); border-color: #166534; }
         .iso-block.active::after { background-color: var(--build-active-right); border-color: #166534; }
 
-        /* PINES FLOTANTES (AR / HUD) */
+        /* PINES FLOTANTES AR / HUD */
         .map-pin {
             position: absolute; transform: translateZ(50px) rotateZ(45deg) rotateX(-60deg);
             background: white; padding: 8px 15px; border-radius: 20px; border: 2px solid var(--primary);
@@ -167,44 +174,57 @@
         .emociones { bottom: 50px; left: 30px; width: 120px; height: 120px; background-color: #dcfce7; border: 4px dotted #22c55e; border-radius: 50%; color: #166534; }
 
 
-        /* ==========================================
-           RESPONSIVE DESING: TABLET & MÓVIL (APP MODE)
-           ========================================== */
+        /* =======================================================
+           📱 OPTIMIZACIÓN EN MODO APP PARA DISPOSITIVOS MÓVILES
+           ======================================================= */
         @media (max-width: 950px) {
-            #city-view, #classroom-view { flex-direction: column; }
+            #city-view, #classroom-view { 
+                flex-direction: column; /* Cambia a disposición vertical */
+            }
             
-            /* Pantalla Dividida: 50% Visual, 50% Panel */
-            .map-area { width: 100%; height: 50dvh; flex: none; }
-            .sidebar { 
-                width: 100% !important; height: 50dvh; flex: none; padding: 25px 20px;
-                border-left: none !important; border-top: 2px solid #e2e8f0; 
-                box-shadow: 0 -10px 20px rgba(0,0,0,0.05);
+            /* Mitad Superior: Mapa */
+            .map-area { 
+                width: 100%; 
+                height: 50dvh; /* Ocupa exactamente el 50% del alto visual */
+                flex: none; 
+            }
+            
+            /* Mitad Inferior: Panel de datos */
+            .sidebar, .sidebar-classroom { 
+                width: 100% !important; 
+                height: 50dvh; /* Ocupa exactamente el otro 50% */
+                flex: none; 
+                padding: 25px 20px;
+                border-left: none !important; 
+                border-top: 2px solid #e2e8f0; 
+                box-shadow: 0 -10px 25px rgba(0,0,0,0.05);
             }
 
-            .iso-grid { transform: scale(0.60) rotateX(60deg) rotateZ(-45deg); gap: 60px; }
-            .classroom { transform: scale(0.65); }
+            /* Reajuste de escalas adaptativas automáticas */
+            .iso-grid { transform: scale(0.58) rotateX(60deg) rotateZ(-45deg); gap: 55px; }
+            .classroom { transform: scale(0.62); }
         }
 
         @media (max-width: 600px) {
-            /* Ajuste de escala drástico para smartphones */
-            .iso-grid { transform: scale(0.38) rotateX(60deg) rotateZ(-45deg); gap: 50px; }
-            .classroom { transform: scale(0.44); }
+            /* Ajustes finos y drásticos para Smartphones pequeños */
+            .iso-grid { transform: scale(0.38) rotateX(60deg) rotateZ(-45deg); gap: 45px; }
+            .classroom { transform: scale(0.42); }
             
-            /* Magia UX: El grid es minúsculo, pero hacemos LOS PINES GIGANTES para tocarlos fácil */
+            /* Maximizamos el tamaño del pin en móviles para que sea fácil pulsar con el dedo */
             .map-pin { 
-                padding: 18px 30px; border-width: 4px;
-                transform: translateZ(90px) rotateZ(45deg) rotateX(-60deg) scale(1.8);
+                padding: 14px 24px; 
+                border-width: 3px;
+                transform: translateZ(90px) rotateZ(45deg) rotateX(-60deg) scale(1.6);
             }
-            .map-pin span:first-child { font-size: 3.5rem !important; }
-            .map-pin span:last-child { font-size: 1.8rem !important; }
+            .map-pin span:first-child { font-size: 3rem !important; }
+            .map-pin span:last-child { font-size: 1.5rem !important; }
 
-            .iso-block:hover .map-pin { transform: translateZ(120px) rotateZ(45deg) rotateX(-60deg) scale(2); }
-            .iso-block.active .map-pin { transform: translateZ(140px) rotateZ(45deg) rotateX(-60deg) scale(2.2); border-width: 5px; }
+            .iso-block:hover .map-pin { transform: translateZ(110px) rotateZ(45deg) rotateX(-60deg) scale(1.8); }
+            .iso-block.active .map-pin { transform: translateZ(120px) rotateZ(45deg) rotateX(-60deg) scale(1.9); }
 
-            /* Ajuste de textos en el móvil */
             .sidebar h1 { font-size: 1.8rem !important; }
             .btn-main { padding: 14px; font-size: 1rem; }
-            #classroom-title { font-size: 1.4rem !important; margin-bottom: 10px !important; }
+            #classroom-title { font-size: 1.3rem !important; margin-bottom: 15px !important; }
         }
     </style>
 </head>
@@ -246,26 +266,24 @@
                     <div class="furniture enciclopedia" onclick="showInfo('enciclopedia', this)">🌐<br>Enciclopedia<br>Infinita</div>
                     <div class="furniture emociones" onclick="showInfo('emociones', this)">🌳<br>Árbol de<br>Emociones</div>
                     <div class="furniture pizarra-det" onclick="showInfo('pizarra', this)">🕵️<br>Pizarra<br>Detectivesca<br><span style="font-size:0.7rem; font-weight:normal;">(Zona Colaborativa)</span></div>
-                    
-                    <!-- Las puertas se generarán aquí abajo de forma dinámica -->
                 </div>
             </div>
         </div>
         
-        <div class="sidebar sidebar-right">
+        <div class="sidebar sidebar-classroom">
             <button class="btn-back" onclick="goToCity()">⬅ Volver a la Ciudad</button>
             <div id="classroom-info-panel" style="margin-top: 0px;">
                 <div style="text-align:center; margin-top:20px;">
                     <span style="font-size:3rem;">🔍</span>
                     <h3 style="color:#475569;">Inspecciona el espacio</h3>
-                    <p style="color:#94a3b8; line-height:1.5;">Toca los rincones del aula o las <b>salidas programadas en esta SdA</b> para descubrir la programación.</p>
+                    <p style="color:#94a3b8; line-height:1.5;">Toca los rincones fijos del aula o las <b>salidas programadas en esta SdA</b> para descubrir la programación.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // BASE DE DATOS ESTRUCTURADA
+        // BASE DE DATOS ESTRUCTURADA - FIEL A TU WORD
         const UDs = {
             1: {
                 titulo: "U1: El Mercado (5º - 1º Trimestre)", ods: "ODS 2, 3 y 4", 
@@ -349,7 +367,7 @@
                     enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Investigación siguiendo un webmix del impacto de las fuentes de energía en el desarrollo de la sociedad.", eval: "Prueba escrita tipo test (30%)" },
                     emociones: { title: "🌳 Árbol de las Emociones", act: "Reflexión individual en el último árbol del trimestre sobre impacto social y sostenibilidad.", eval: "Conciencia ambiental" },
                     aulaFuturo: { title: "🚪 Aula del Futuro", act: "Elaboración cooperativa de una maqueta de planta de energía renovable y ensayo de oratoria.", eval: "Exposición oral: rúbrica (35%)" },
-                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Feria de la Energía (explicación a otros grupos con recursos audiovisuales).", eval: "Comunicación pública" }
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Feria de la Energía (explicación a otros grupos con recursos audiovisual).", eval: "Comunicación pública" }
                 }
             },
             8: {
@@ -414,7 +432,7 @@
             },
             13: {
                 titulo: "U13: Centro de Datos (6º - 2º Trimestre)", ods: "ODS 4, 9 y 10", 
-                desc: "<b>Reto:</b> ¿Podemos comprender la historia de como nuestro mundo se digitalizó?<br><b>Producto:</b> Exposición oral de la evolución digital.",
+                desc: "<b>Reto:</b> ¿Podemos comprender la historia de como nuestro world se digitalizó?<br><b>Producto:</b> Exposición oral de la evolución digital.",
                 zonas: {
                     pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Debate cruzado (for and against) analizando las ventajas e inconvenientes éticos de las TIC en sociedad.", eval: "Exposición for/against (30%)" },
                     verdad: { title: "📖 Rincón de la Verdad", act: "Fichas teóricas ordenando la historia y cronología de la revolución y los dispositivos informáticos.", eval: "Dossier: lista de cotejo (15%)" },
@@ -507,6 +525,7 @@
             currentUD = id;
             document.getElementById('city-view').style.display = 'none';
             document.getElementById('classroom-view').style.display = 'flex';
+            document.getElementById('classroom-title').innerText = `🏫 Centro Educativo - ${UDs[id].titulo}`;
             
             document.querySelectorAll('.furniture').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.door').forEach(el => el.remove());
