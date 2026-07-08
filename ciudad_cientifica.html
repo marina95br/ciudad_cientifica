@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ciudad Científica - Programación Anual</title>
+    <style>
+        :root {
+            --bg-page: #f1f5f9;
+            --wall-color: #334155;
+            --floor-color: #fffbeb;
+            --primary: #0284c7;
+            --success: #16a34a;
+            --text-main: #0f172a;
+            --panel-bg: #ffffff;
+            
+            /* Colores de los edificios */
+            --build-top: #f8fafc;
+            --build-left: #cbd5e1;
+            --build-right: #94a3b8;
+            --build-active-top: #bbf7d0;
+            --build-active-left: #86efac;
+            --build-active-right: #4ade80;
+        }
+
+        body { 
+            margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; 
+            background-color: var(--bg-page); color: var(--text-main); overflow: hidden; 
+        }
+
+        #city-view, #classroom-view { display: flex; width: 100vw; height: 100vh; transition: opacity 0.4s ease; }
+
+        .sidebar {
+            width: 450px; background-color: var(--panel-bg); padding: 40px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.08); display: flex; flex-direction: column;
+            z-index: 100; overflow-y: auto;
+        }
+
+        .map-area {
+            flex: 1; display: flex; flex-direction: column; justify-content: center;
+            align-items: center; background: radial-gradient(circle at center, #e0f2fe 0%, #f1f5f9 100%);
+            position: relative;
+        }
+
+        /* --- CIUDAD ISOMÉTRICA (Ampliados los cuadrados y los espacios) --- */
+        .iso-grid {
+            display: grid; 
+            grid-template-columns: repeat(4, 120px); /* Antes 90px, ahora 120px */
+            grid-template-rows: repeat(4, 120px);    /* Antes 90px, ahora 120px */
+            gap: 65px;                               /* Antes 40px, ahora 65px de separación */
+            transform: scale(0.85) rotateX(60deg) rotateZ(-45deg); /* Escala ajustada para que quepa en pantalla */
+            transform-style: preserve-3d;
+        }
+        
+        .iso-block {
+            width: 100%; height: 100%; background-color: var(--build-top);
+            border: 2px solid #94a3b8; position: relative; transform-style: preserve-3d;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; 
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 15px rgba(255,255,255,0.8);
+        }
+        
+        /* Pared Izquierda del edificio (ajustada al nuevo tamaño) */
+        .iso-block::before {
+            content: ''; position: absolute; width: 35px; height: 100%; background-color: var(--build-left);
+            left: -37px; top: 0px; transform-origin: right; transform: rotateY(-90deg) skewY(-0deg);
+            border-left: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; border-top: 2px solid #94a3b8;
+            transition: all 0.3s;
+        }
+        
+        /* Pared Derecha del edificio (ajustada al nuevo tamaño) */
+        .iso-block::after {
+            content: ''; position: absolute; width: 100%; height: 35px; background-color: var(--build-right);
+            left: 0px; bottom: -37px; transform-origin: top; transform: rotateX(-90deg) skewX(-0deg);
+            border-left: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; border-right: 2px solid #94a3b8;
+            transition: all 0.3s;
+        }
+        
+        .iso-block:hover { transform: translateZ(10px); background-color: #ffffff; }
+        
+        .iso-block.active { transform: translateZ(20px); background-color: var(--build-active-top); border-color: #166534; }
+        .iso-block.active::before { background-color: var(--build-active-left); border-color: #166534; }
+        .iso-block.active::after { background-color: var(--build-active-right); border-color: #166534; }
+
+        /* PINES FLOTANTES ESTILO GOOGLE MAPS (AR / HUD) */
+        .map-pin {
+            position: absolute;
+            transform: translateZ(50px) rotateZ(45deg) rotateX(-60deg); /* Elevados para compensar el tamaño */
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 2px solid var(--primary);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none; /* Que el clic pase al edificio (esto evita que el pin bloquee el clic) */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--text-main);
+        }
+
+        .map-pin::after {
+            content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+            border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid var(--primary);
+            transition: all 0.3s;
+        }
+
+        .iso-block:hover .map-pin { transform: translateZ(70px) rotateZ(45deg) rotateX(-60deg) scale(1.1); box-shadow: 0 15px 25px rgba(0,0,0,0.2); }
+        
+        .iso-block.active .map-pin {
+            background: var(--success); color: white; border-color: #14532d;
+            transform: translateZ(85px) rotateZ(45deg) rotateX(-60deg) scale(1.15);
+        }
+        .iso-block.active .map-pin::after { border-top-color: #14532d; }
+
+        .btn-main {
+            width: 100%; padding: 18px; margin-top: auto; background-color: var(--primary); color: white;
+            border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 800; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3);
+        }
+        .btn-main:hover { background-color: #0369a1; transform: translateY(-2px); }
+        .btn-back {
+            padding: 12px 20px; margin-bottom: 30px; background-color: #f1f5f9; color: var(--text-main);
+            border: 2px solid #cbd5e1; border-radius: 10px; font-size: 1rem; font-weight: bold; cursor: pointer;
+        }
+
+        /* --- AULA FÍSICA Y ESPACIOS --- */
+        .classroom {
+            width: 750px; height: 500px; background-color: var(--floor-color);
+            border: 15px solid var(--wall-color); border-bottom: 15px solid var(--wall-color);
+            position: relative; border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,0,0,0.02) 40px, rgba(0,0,0,0.02) 42px);
+        }
+
+        .whiteboard {
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+            width: 320px; height: 15px; background-color: #f8fafc; border: 2px solid #cbd5e1; 
+            z-index: 10; text-align: center; font-weight: 900; line-height: 15px; color: #475569;
+        }
+        .whiteboard::after { content: "PDI (PIZARRA DIGITAL)"; position: absolute; top: 15px; left: 25%; font-size: 0.7rem; font-weight: bold; color: #64748b; }
+
+        /* PUERTAS DINÁMICAS */
+        .door {
+            position: absolute; bottom: -15px; height: 20px; 
+            border-left: 3px solid var(--wall-color); border-right: 3px solid var(--wall-color); 
+            cursor: pointer; transition: all 0.3s; z-index: 10;
+            display: flex; justify-content: center; align-items: flex-start;
+            font-size: 0.8rem; font-weight: 900; transform: translateX(-50%);
+        }
+        .door:hover { transform: translateX(-50%) translateY(-5px); z-index: 20; box-shadow: 0 -10px 20px rgba(0,0,0,0.2); }
+        .door.active { outline: 4px solid var(--primary); outline-offset: 4px; z-index: 20; transform: translateX(-50%) translateY(-5px);}
+
+        .door-futuro { width: 140px; background-color: #e9d5ff; color: #6b21a8; border-color: #7e22ce; }
+        .door-futuro::after { content: "🚪 AULA FUTURO"; position: absolute; bottom: 25px; white-space: nowrap; }
+
+        .door-huerto { width: 140px; background-color: #bbf7d0; color: #166534; border-color: #15803d; }
+        .door-huerto::after { content: "🌱 HUERTO"; position: absolute; bottom: 25px; white-space: nowrap; }
+
+        .door-entorno { width: 140px; background-color: #fed7aa; color: #9a3412; border-color: #c2410c; }
+        .door-entorno::after { content: "🚌 ENTORNO"; position: absolute; bottom: 25px; white-space: nowrap; }
+
+        .door-patio { width: 140px; background-color: #fef08a; color: #854d0e; border-color: #ca8a04; }
+        .door-patio::after { content: "🏀 PATIO"; position: absolute; bottom: 25px; white-space: nowrap; }
+
+        /* MUEBLES INTERACTIVOS */
+        .furniture {
+            position: absolute; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            text-align: center; font-weight: 800; font-size: 0.95rem; box-shadow: 2px 5px 10px rgba(0,0,0,0.15);
+            transition: all 0.2s; padding: 5px; border-radius: 8px;
+        }
+        .furniture:hover { transform: scale(1.05) translateY(-5px); z-index: 20; }
+        .furniture.active { outline: 4px solid var(--primary); outline-offset: 4px; z-index: 20; transform: scale(1.05);}
+        .pizarra-det { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 220px; height: 130px; background-color: #fef08a; border: 4px dashed #ca8a04; color: #854d0e; font-size: 1.1rem;}
+        .pizarra-det:hover, .pizarra-det.active { transform: translate(-50%, -55%) scale(1.05); }
+        .verdad { top: 40px; left: 30px; width: 130px; height: 100px; background-color: #f1f5f9; border: 3px solid #94a3b8; color: #334155; }
+        .enciclopedia { top: 40px; right: 30px; width: 140px; height: 100px; background-color: #bfdbfe; border: 3px solid #3b82f6; color: #1e3a8a; }
+        .emociones { bottom: 50px; left: 30px; width: 120px; height: 120px; background-color: #dcfce7; border: 4px dotted #22c55e; border-radius: 50%; color: #166534; }
+    </style>
+</head>
+<body>
+
+    <!-- VISTA 1: CIUDAD -->
+    <div id="city-view">
+        <div class="sidebar">
+            <h1 style="color:var(--primary); margin:0 0 5px 0; font-size: 2.2rem; font-weight: 800;">Ciudad Científica</h1>
+            <p style="color:#475569; font-weight:700; margin:0 0 4px 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.5px;">Programación Didáctica Anual</p>
+            <p style="color:#64748b; font-weight:600; margin:0; font-size: 1rem; font-style: italic;">Autor: Jaime Díaz-Mayordomo Hernández</p>
+            <hr style="border:1px solid #e2e8f0; margin: 20px 0; width: 100%;">
+            
+            <div id="city-info-panel" style="flex:1;">
+                <div style="text-align:center; margin-top:50px;">
+                    <span style="font-size:3rem;">🏙️</span>
+                    <h3 style="color:#475569;">Selecciona un edificio</h3>
+                    <p style="color:#94a3b8;">Haz clic en un bloque de unidad didáctica para acceder a la investigación en los espacios del centro.</p>
+                </div>
+            </div>
+        </div>
+        <div class="map-area">
+            <div class="iso-grid" id="city-grid"></div>
+        </div>
+    </div>
+
+    <!-- VISTA 2: AULA DE INVESTIGACIÓN Y ESPACIOS DEL CENTRO -->
+    <div id="classroom-view" style="display:none;">
+        <div class="map-area" style="background: var(--bg-page);">
+            <div style="display:flex; flex-direction:column; align-items:center;">
+                <h2 id="classroom-title" style="color: var(--wall-color); font-size: 2rem; margin-bottom: 40px;">🕵️ Centro Educativo</h2>
+                
+                <div class="classroom" id="classroom-container">
+                    <!-- Pared Norte -->
+                    <div class="whiteboard"></div>
+                    
+                    <!-- Muebles base siempre presentes -->
+                    <div class="furniture verdad" onclick="showInfo('verdad', this)">📖<br>Rincón de<br>la Verdad</div>
+                    <div class="furniture enciclopedia" onclick="showInfo('enciclopedia', this)">🌐<br>Enciclopedia<br>Infinita</div>
+                    <div class="furniture emociones" onclick="showInfo('emociones', this)">🌳<br>Árbol de<br>Emociones</div>
+                    <div class="furniture pizarra-det" onclick="showInfo('pizarra', this)">🕵️<br>Pizarra<br>Detectivesca<br><span style="font-size:0.7rem; font-weight:normal;">(Zona Colaborativa)</span></div>
+                    
+                    <!-- Las puertas se generarán aquí abajo de forma dinámica -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar" style="border-left: 1px solid #e2e8f0; width: 420px;">
+            <button class="btn-back" onclick="goToCity()">⬅ Volver a la Ciudad</button>
+            <div id="classroom-info-panel" style="margin-top: 10px;">
+                <div style="text-align:center; margin-top:50px;">
+                    <span style="font-size:3rem;">🔍</span>
+                    <h3 style="color:#475569;">Inspecciona el espacio</h3>
+                    <p style="color:#94a3b8;">Haz clic en los rincones fijos del aula o en las <b>salidas programadas en esta SdA</b> para descubrir la programación.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // BASE DE DATOS ESTRUCTURADA
+        const UDs = {
+            1: {
+                titulo: "U1: El Mercado (5º - 1º Trimestre)", ods: "ODS 2, 3 y 4", 
+                desc: "<b>Reto:</b> ¿Podemos hacer una dieta saludable que mejore nuestra salud y que esté rica?<br><b>Producto:</b> Planificación nutricional de un día completo.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Clasificación de los alimentos en función de sus nutrientes a través del uso de cartas.", eval: "Observación: registro anecdótico (15%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Registro de conocimientos e hipótesis previas sobre nutrientes y beneficios de una alimentación saludable.", eval: "Dossier: Lista de cotejo/rúbrica (25%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Investigación por internet del etiquetado de alimentos. Uso de plataforma online para concurso sobre alimentación.", eval: "Competencia digital (TIC)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Reflexión individual en la sesión sobre cómo nos sentimos al cuidar nuestra salud.", eval: "Regulación emocional" },
+                    huerto: { title: "🌱 Huerto", act: "Actividad complementaria: Cultivación de vegetales en el huerto del centro.", eval: "Ciudadano (inicial)" }
+                }
+            },
+            2: {
+                titulo: "U2: El Huerto (5º - 1º Trimestre)", ods: "ODS 3, 4, 11 y 12", 
+                desc: "<b>Reto:</b> ¿Podemos ayudar a la gente que queremos para que mejoren su calidad de vida?<br><b>Producto:</b> Exposición oral ante ancianos apoyándose en un cómic.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Generación de forma cooperativa de menús saludables destinados a la tercera edad.", eval: "Dossier: Lista de cotejo (35%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Registro individual y científico de las causas que hacen unos alimentos mejores que otros.", eval: "Observación anecdótica (20%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Uso de la plataforma online para concurso de preguntas sobre alimentación y salud.", eval: "Prueba digital" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Reflexión privada de cada alumno sobre empatía hacia nuestros mayores. Coloreado de la hoja.", eval: "Inteligencia Emocional" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Elaboración interdisciplinar (EF, EV, LCL, EA) del cómic, historia o collage para preparar la exposición.", eval: "Desarrollo grupal cooperativo" },
+                    huerto: { title: "🌱 Huerto", act: "Continuación del cuidado del huerto escolar para en un futuro cosechar lo plantado.", eval: "Indicador: Alcalde (avanzado)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad Complementaria: Exposición oral en el centro frente a gente anciana.", eval: "Exposición oral: rúbrica (45%)" }
+                }
+            },
+            3: {
+                titulo: "U3: La Calle (5º - 1º Trimestre)", ods: "ODS 3, 4, 9 y 11", 
+                desc: "<b>Reto:</b> ¿Podemos resolver situaciones de acoso y ciberacoso y entender ambas partes?<br><b>Producto:</b> Roleplay de situaciones de acoso.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Brainstorming sobre formas de evitar el ciberacoso, y estrategias de ciberseguridad.", eval: "Observación debates: registro (15%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Anotar en la libreta las medidas de prevención para diferentes tipos de riesgos (doméstico, urbano).", eval: "Dossier: Lista de cotejo (25%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Uso de Plickers para asentar los conceptos de seguridad TIC y riesgos más comunes.", eval: "Prueba escrita competencial (35%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Empatizar con todas las partes de un ciberacoso, el acosado y el acosador.", eval: "Resolución de conflictos (EV)" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Espacio de presentación para el teatro / Roleplay de situaciones de acoso.", eval: "Representación teatral: rúbrica (25%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visita a una estación de bomberos.", eval: "Educación vial y primeros auxilios" }
+                }
+            },
+            4: {
+                titulo: "U4: La Mina (5º - 2º Trimestre)", ods: "ODS 4, 12, 13 y 15", 
+                desc: "<b>Reto:</b> ¿Podemos identificar los minerales más utilizados y saber para que se utilizan?<br><b>Producto:</b> Experimentación y distinción de minerales.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Prueba práctica manipulativa para adivinar minerales en función a sus características.", eval: "Prueba práctica (40%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Investigación del proceso de formación de las rocas y registro en libreta.", eval: "Dossier: Lista de cotejo (20%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Búsqueda web guiada y debate sobre las ventajas e inconvenientes del uso de recursos minerales.", eval: "Observación: registro (15%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Desarrollo de una actitud sostenible hacia el uso de materias primas. Árbol de 2º trimestre.", eval: "Actitud sostenible" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Elaboración de un mural por grupos sobre el proceso de formación de las rocas (Ed. Artística).", eval: "Exposición con mural: rúbrica (25%)" },
+                    patio: { title: "🏀 Patio y Pasillos", act: "Búsqueda de minerales en el entorno escolar siguiendo un mapa (trabajo de orientación con EF).", eval: "Conocimiento del medio" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visita a un centro de interpretación de geología.", eval: "Práctica de campo" }
+                }
+            },
+            5: {
+                titulo: "U5: La Fábrica (5º - 2º Trimestre)", ods: "ODS 4, 5, 13 y 15", 
+                desc: "<b>Reto:</b> ¿Podemos adaptarnos al relieve que nos rodea?<br><b>Producto:</b> Juego de mesa sobre el relieve.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Planteamiento de suposiciones de los efectos del relieve en la vida cotidiana para después investigarlo.", eval: "Observación: registro anecdótico (20%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Estudio y esquematización de los procesos de erosión, transporte y sedimentación.", eval: "Prueba escrita competencial (40%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Creación de un mural sobre profesiones relacionadas con la ciencia y la geología (Igualdad de género).", eval: "Uso de TAC" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Evaluación de la cohesión grupal y el reparto de tareas en el desarrollo del juego.", eval: "Convivencia" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Elaboración del juego de mesa y construcción de la maqueta física de relieve con material reciclado.", eval: "Dossier / Juego / Maqueta (40%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visita de una zona natural que presente formas del relieve llamativas, Ciudad Encantada.", eval: "Trabajo empírico" }
+                }
+            },
+            6: {
+                titulo: "U6: El Ayuntamiento (5º - 2º Trimestre)", ods: "ODS 4, 7, 9, 11, 12, 13, 15", 
+                desc: "<b>Reto:</b> ¿Podemos entender y crear un circuito eléctrico para la ciudad?<br><b>Producto:</b> Construcción de un circuito eléctrico.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Brainstorming para crear mapa conceptual de tipos de energía y objetos que la usan.", eval: "Observación: registro anecdótico (15%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Clase magistral repasando el método científico, circuitos y energías no renovables.", eval: "Dossier: Lista de cotejo (25%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Kahoot para trabajar el concepto de energía renovable frente a no renovable.", eval: "Evaluación interactiva" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Frustración y éxito: dinámica emocional durante el ensamblaje de circuitos que no funcionan a la primera.", eval: "Resolución de problemas" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Construcción física y prueba del circuito eléctrico por grupos de forma guiada (aplicando geometría y medidas).", eval: "Circuito eléctrico (35%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Concurso de ideas de energía renovable con maquetación en zonas comunes.", eval: "Competencia de diseño" }
+                }
+            },
+            7: {
+                titulo: "U7: La Central Eléctrica (5º - 3er Trimestre)", ods: "ODS 7, 12, 13", 
+                desc: "<b>Reto:</b> ¿Por qué funcionan los objetos de nuestro entorno?<br><b>Producto:</b> Exposición de una maqueta de planta renovable.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Investigación de formas de energía presentes en el ambiente del aula (ej. luz, calor).", eval: "Diario de clase (10%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Medición de diferentes formas de energía usando termómetros y registro de la temperatura.", eval: "Dossier: Lista de cotejo (25%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Investigación siguiendo un webmix del impacto de las fuentes de energía en el desarrollo de la sociedad.", eval: "Prueba escrita tipo test (30%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Reflexión individual en el último árbol del trimestre sobre impacto social y sostenibilidad.", eval: "Conciencia ambiental" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Elaboración cooperativa de una maqueta de planta de energía renovable y ensayo de oratoria.", eval: "Exposición oral: rúbrica (35%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Feria de la Energía (explicación a otros grupos con recursos audiovisuales).", eval: "Comunicación pública" }
+                }
+            },
+            8: {
+                titulo: "U8: El Hospital (5º - 3er Trimestre)", ods: "ODS 3, 4, 12", 
+                desc: "<b>Reto:</b> ¿Podemos comprender como digiere y respira nuestro cuerpo?<br><b>Producto:</b> Examen mediante Kahoot para los compañeros.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Investigación del proceso del sistema circulatorio y resolución gamificada de un problema.", eval: "Resolución de problema: Rúbrica (30%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Estudio de las funciones de los órganos del cuerpo humano implicados en nutrición y respiración.", eval: "Diario de clase (10%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Elaboración y diseño de preguntas en la app Kahoot para evaluar a los compañeros de clase.", eval: "Elaboración Kahoot (30%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Ensayo de dinámicas de relajación e inteligencia emocional a través del baile sobre la respiración.", eval: "Interdisciplinariedad (EA)" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Taller para elaborar la maqueta 3D sobre el estómago y presentar el baile de la respiración.", eval: "Maqueta y baile: Cotejo (30%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Taller de primeros auxilios impartido por un profesional de la salud en el centro.", eval: "Formación cívica" }
+                }
+            },
+            9: {
+                titulo: "U9: El Colegio (6º - 1er Trimestre)", ods: "ODS 3 y 4", 
+                desc: "<b>Reto:</b> ¿Podemos comprender como crece nuestro cuerpo y nos reproducimos?<br><b>Producto:</b> Maquetación de partes del cuerpo humano.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Roleplay teatral simulando el funcionamiento orgánico y la función de relación en asamblea.", eval: "Roleplay: Lista de cotejo (25%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Explicación biológica del proceso de fecundación, desarrollo embrionario y el parto.", eval: "Prueba escrita y test (35%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Investigación guiada siguiendo un webmix sobre los nervios y los órganos sensoriales.", eval: "Observación: registro (15%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Debate en asamblea sobre la higiene, el pudor y el respeto hacia los cambios puberales.", eval: "Tolerancia y respeto (EV)" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Construcción de un esqueleto humano (material reciclado) y maquetación de órganos reproductores.", eval: "Dossier y maquetación (25%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visionado crítico de capítulos de 'Érase una vez el cuerpo humano'.", eval: "Fomento TAC audiovisual" }
+                }
+            },
+            10: {
+                titulo: "U10: La Biblioteca (6º - 1er Trimestre)", ods: "ODS 3, 4, 5", 
+                desc: "<b>Reto:</b> ¿Podemos mejorar al conocer nuestros puntos fuertes y débiles?<br><b>Producto:</b> Infografía y análisis D.A.F.O personal.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Debate para la desmitificación de la adolescencia y la pubertad a través de mitos falsos (asamblea).", eval: "Observación: registro (30%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Autorreflexión: Desarrollo de habilidades para la comunicación asertiva mediante un roleplay de problemas puberales.", eval: "Prueba competencial (40%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Creación digital de una infografía visual que recoja un análisis D.A.F.O. íntimo y personal.", eval: "Exposición DAFO: Rúbrica (30%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Evaluación de la propia identidad, puntos fuertes y gestión de inseguridades de la adolescencia.", eval: "Autoestima y empatía" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Cinefórum: Visionado y análisis de las emociones de la película 'Inside out 2'.", eval: "Resolución de problemas" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visionado y debate de capítulos pertinentes de la serie Big Mouth.", eval: "Tolerancia y diversidad" }
+                }
+            },
+            11: {
+                titulo: "U11: El Laboratorio (6º - 1er Trimestre)", ods: "ODS 4, 12, 17", 
+                desc: "<b>Reto:</b> ¿Podemos realizar experimentos para descubrir el mundo que nos rodea?<br><b>Producto:</b> Experimento científico documentado.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Planteamiento grupal metacognitivo de dudas científicas del entorno para resolver mediante el método científico.", eval: "Observación: registro (20%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Estudio riguroso de las etapas del método científico y recopilación del documento de la investigación.", eval: "Documento de inv: Rúbrica (55%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Búsqueda web de bibliografía y referencias para diseñar los experimentos de laboratorio.", eval: "Uso fuentes fiables" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Trabajo cooperativo, reparto de responsabilidades y aceptación del ensayo y error.", eval: "Trabajo en equipo" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Comunicación oral cooperativa y responsable mostrando el diseño y los resultados de los experimentos.", eval: "Presentación resultados (25%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visita al Museo Nacional de Ciencias Naturales de Madrid.", eval: "Excursión científica" }
+                }
+            },
+            12: {
+                titulo: "U12: El Restaurante (6º - 2º Trimestre)", ods: "ODS 4, 17", 
+                desc: "<b>Reto:</b> ¿Podemos usar la ciencia para cocinar y distinguir noticias falsas?<br><b>Producto:</b> Exposición del proceso de cocinado de un plato.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Roleplay de situaciones de la vida cotidiana donde el alumnado emplea el método científico sin saberlo.", eval: "Observación: registro (20%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Elaboración de hipótesis matemáticas sobre tiempos y cantidades en gramos para cocinar.", eval: "Dossier científico" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Contraste riguroso de información y fuentes para distinguir información falsa (fake news) de fiable.", eval: "Prueba contraste noticias (40%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Valorar en el diario emocional la importancia de tener una mentalidad favorable a la indagación.", eval: "Mentalidad crítica" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Exposición oral técnica presentando los resultados de la receta cocinada, aportando una muestra real.", eval: "Exposición oral: Rúbrica (40%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visita guiada a una cadena de radio o televisión (medios de información).", eval: "Análisis de medios" }
+                }
+            },
+            13: {
+                titulo: "U13: Centro de Datos (6º - 2º Trimestre)", ods: "ODS 4, 9 y 10", 
+                desc: "<b>Reto:</b> ¿Podemos comprender la historia de como nuestro mundo se digitalizó?<br><b>Producto:</b> Exposición oral de la evolución digital.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Debate cruzado (for and against) analizando las ventajas e inconvenientes éticos de las TIC en sociedad.", eval: "Exposición for/against (30%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Fichas teóricas ordenando la historia y cronología de la revolución y los dispositivos informáticos.", eval: "Dossier: lista de cotejo (15%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Visionado interactivo de vídeo didáctico sobre instrumentos digitales en la tablet, resolviendo preguntas.", eval: "Prueba digital tipo test (15%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Impacto de las tecnologías en la salud mental, el bienestar social y la adicción digital (2º trimestre).", eval: "Educación en valores" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Confección colaborativa de una línea temporal (mural TIC) y exposición de la historia digital.", eval: "Exposición evolución (30%) / (Observación 10%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visionado de documental experto sobre la historia de la revolución digital.", eval: "Estudio audiovisual" }
+                }
+            },
+            14: {
+                titulo: "U14: El Puerto (6º - 2º Trimestre)", ods: "ODS 4-12", 
+                desc: "<b>Reto:</b> ¿Podemos conseguir que floten los barcos gracias a conocimientos científicos?<br><b>Producto:</b> Elaboración de un barco con prueba de flotabilidad.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Comprobar flotabilidad de diversos objetos elaborando hipótesis previas de masa vs peso.", eval: "Observación: registro (20%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Identificar propiedades generales de la materia. Relacionar matemáticamente densidad y flotabilidad.", eval: "Prueba escrita (30%) / Dossier (25%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Uso de TAC e internet para investigar diseños hidrodinámicos y banderas navales históricas.", eval: "Competencia digital (CD)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Manejo del fracaso y la perseverancia durante los tests de hundimiento del barco.", eval: "Autonomía e iniciativa" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Taller artesanal: Elaboración y construcción del barco con material reciclado y su bandera.", eval: "Comprobación barco (25%)" },
+                    patio: { title: "🏀 Patio y Pasillos", act: "Actividad complementaria: Taller de científicos (balanzas, probetas, cubetas de agua para testear el barco).", eval: "Uso de instrumentos de medida" }
+                }
+            },
+            15: {
+                titulo: "U15: El Taller (6º - 3er Trimestre)", ods: "ODS 3, 4, 5, 7, 9, 11", 
+                desc: "<b>Reto:</b> ¿Podemos utilizar todo lo aprendido en nuestra vida cotidiana?<br><b>Producto:</b> Plato final grabado en vídeo analizando energía/materia.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Consolidación de las formas de energía mediante el uso competitivo de tarjetas gamificadas Plickers.", eval: "Observación: registro (20%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Experimentación lúdica de los cambios de estado de la materia (sólido a líquido, etc) jugando con una muñeca.", eval: "Dossier del proyecto (20%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Uso integral de TAC: planificación escrita de recetas, búsqueda nutricional y edición final de vídeo.", eval: "Redacción y edición digital" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Síntesis transversal: comprender cómo la ciencia aprendida durante el ciclo se conecta con su vida diaria.", eval: "Conciencia holística" },
+                    huerto: { title: "🌱 Huerto", act: "Fase 1 del Proyecto: Visita al huerto ecológico escolar para recolectar y extraer directamente las verduras.", eval: "Manipulación de recursos (ODS)" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Fase 2 del Proyecto: Realización del plato, grabación audiovisual completa y exposición con argumentos de estado.", eval: "Proyecto final y vídeo (60%)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Visita tecnológica al laboratorio científico de alto nivel del IMDEA Energía (Móstoles).", eval: "Salida científica" }
+                }
+            },
+            16: {
+                titulo: "U16: El Aeropuerto (6º - 3er Trimestre)", ods: "ODS 4, 12, 13", 
+                desc: "<b>Reto:</b> ¿Podemos conseguir que los aviones vuelen y los coches lleguen lejos?<br><b>Producto:</b> Construir avión de papel que vuele 15 metros.",
+                zonas: {
+                    pizarra: { title: "🕵️ Pizarra Detectivesca", act: "Investigación guiada sobre las variables que afectan al coche de juguete (rozamiento y rodadura del suelo).", eval: "Observación: diario (20%)" },
+                    verdad: { title: "📖 Rincón de la Verdad", act: "Cumplimentación de fichas tabuladas y elaboración de gráficos matemáticos comparando hipótesis empíricas.", eval: "Dossier y gráficos (30%)" },
+                    enciclopedia: { title: "🌐 Enciclopedia Infinita", act: "Elaboración de presentación digital argumentando medidas que reduzcan consumo de combustibles fósiles.", eval: "Prueba escrita / Presentación (30%)" },
+                    emociones: { title: "🌳 Árbol de las Emociones", act: "Asimilación del vocabulario científico aprendido en el curso y reflexión final de madurez del tercer trimestre.", eval: "Autoevaluación del alumno" },
+                    aulaFuturo: { title: "🚪 Aula del Futuro", act: "Diseño y construcción iterativa de un modelo de avión aplicando principios básicos de vuelo y sustentación.", eval: "Presentación oral aerodinámica (20%)" },
+                    patio: { title: "🏀 Patio y Pasillos", act: "Desplazamiento al exterior para experimentar la distancia y variables (inclinación) del coche y el lanzamiento del avión.", eval: "Trabajo empírico (Lanzamiento)" },
+                    entorno: { title: "🚌 Entorno", act: "Actividad complementaria: Taller práctico tutelado por un club de aeromodelismo externo que da consejos al aula.", eval: "Transferencia de conocimiento" }
+                }
+            }
+        };
+
+        // Diccionario Temático de Iconos
+        const emojisUD = {
+            1: "🛒", 2: "🌱", 3: "🛣️", 4: "⛏️", 5: "🏭", 6: "🏛️", 7: "⚡", 8: "🏥",
+            9: "🏫", 10: "📚", 11: "🧪", 12: "🍳", 13: "💾", 14: "⚓", 15: "🛠️", 16: "🛩️"
+        };
+
+        let currentUD = 1;
+
+        function initCity() {
+            const grid = document.getElementById('city-grid');
+            for(let i=1; i<=16; i++) {
+                const block = document.createElement('div');
+                block.className = 'iso-block';
+                
+                // Incorporamos el marcador flotante HUD para el emoji
+                block.innerHTML = `
+                    <div class="map-pin">
+                        <span style="font-size: 1.6rem; margin-bottom: 3px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));">${emojisUD[i]}</span>
+                        <span style="font-size: 0.8rem; font-weight: 900;">U${i}</span>
+                    </div>
+                `;
+                block.onclick = () => selectBuilding(i, block);
+                grid.appendChild(block);
+            }
+        }
+
+        function selectBuilding(id, element) {
+            document.querySelectorAll('.iso-block').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            const data = UDs[id];
+            const panel = document.getElementById('city-info-panel');
+            panel.innerHTML = `
+                <div style="background: white; border-radius: 12px; padding: 25px; border-left: 5px solid var(--primary); box-shadow: 0 10px 20px rgba(0,0,0,0.05); margin-top: 20px;">
+                    <h2 style="color:var(--text-main); margin: 0 0 10px 0;">${data.titulo}</h2>
+                    <div style="display:inline-block; background:#dcfce7; color:#166534; padding:5px 12px; border-radius:20px; font-weight:bold; font-size:0.85rem; margin-bottom:20px;">${data.ods}</div>
+                    <p style="line-height:1.6; color:#475569; font-size: 1.05rem;">${data.desc}</p>
+                </div>
+                <button class="btn-main" onclick="enterClassroom(${id})">🔍 Entrar al Centro Educativo</button>
+            `;
+        }
+
+        function enterClassroom(id) {
+            currentUD = id;
+            document.getElementById('city-view').style.display = 'none';
+            document.getElementById('classroom-view').style.display = 'flex';
+            document.getElementById('classroom-title').innerText = `🏫 Centro Educativo - ${UDs[id].titulo}`;
+            
+            // Limpiar activos
+            document.querySelectorAll('.furniture').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.door').forEach(el => el.remove());
+            
+            const classroom = document.getElementById('classroom-container');
+            const zonas = UDs[id].zonas;
+            const availableDoors = [];
+            
+            if (zonas.aulaFuturo) availableDoors.push({ id: 'aulaFuturo', class: 'door-futuro' });
+            if (zonas.huerto) availableDoors.push({ id: 'huerto', class: 'door-huerto' });
+            if (zonas.entorno) availableDoors.push({ id: 'entorno', class: 'door-entorno' });
+            if (zonas.patio) availableDoors.push({ id: 'patio', class: 'door-patio' });
+
+            const numDoors = availableDoors.length;
+            availableDoors.forEach((door, index) => {
+                const doorEl = document.createElement('div');
+                doorEl.className = `door ${door.class}`;
+                
+                let pos = 50; 
+                if (numDoors === 2) pos = 35 + (index * 30); 
+                if (numDoors === 3) pos = 20 + (index * 30); 
+                if (numDoors === 4) pos = 15 + (index * 23.3); 
+                
+                doorEl.style.left = `${pos}%`;
+                doorEl.onclick = function() { showInfo(door.id, this); };
+                classroom.appendChild(doorEl);
+            });
+
+            document.getElementById('classroom-info-panel').innerHTML = `
+                <div style="text-align:center; margin-top:50px;">
+                    <span style="font-size:3rem;">🔍</span>
+                    <h3 style="color:#475569;">Inspecciona el espacio</h3>
+                    <p style="color:#94a3b8;">Haz clic en los rincones fijos del aula o en las <b>salidas programadas en esta SdA</b> para descubrir la programación.</p>
+                </div>
+            `;
+        }
+
+        function goToCity() {
+            document.getElementById('classroom-view').style.display = 'none';
+            document.getElementById('city-view').style.display = 'flex';
+        }
+
+        function showInfo(zonaId, element) {
+            document.querySelectorAll('.furniture, .door').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            
+            const data = UDs[currentUD].zonas[zonaId];
+            const panel = document.getElementById('classroom-info-panel');
+            
+            panel.innerHTML = `
+                <div style="font-size: 1.6rem; font-weight: 900; color: var(--primary); margin-bottom: 25px;">${data.title}</div>
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color:#64748b; text-transform:uppercase; font-size:0.85rem; letter-spacing:1px; margin-bottom:10px;">🛠️ Trabajo / Dinámica</h4>
+                    <div style="background:#f8fafc; border-left:4px solid var(--primary); padding:18px; border-radius:0 8px 8px 0; line-height:1.6; color:#334155; font-weight:500; font-size: 1.05rem;">
+                        ${data.act}
+                    </div>
+                </div>
+                <div>
+                    <h4 style="color:#64748b; text-transform:uppercase; font-size:0.85rem; letter-spacing:1px; margin-bottom:10px;">📊 Instrumento de Evaluación</h4>
+                    <div style="background:#fff7ed; border-left:4px solid #f97316; padding:18px; border-radius:0 8px 8px 0; color:#c2410c; font-weight:bold; font-size: 1.05rem;">
+                        ${data.eval}
+                    </div>
+                </div>
+            `;
+        }
+
+        initCity();
+    </script>
+</body>
+</html>
